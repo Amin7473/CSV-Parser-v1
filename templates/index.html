@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Parser</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Dropdown styles -->
+    <link href="https://cdn.jsdelivr.net/npm/dropzone@5.7.0/dist/dropzone.css" rel="stylesheet" />
+    <!-- Data Table -->
+    <link href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            padding: 0;
+            margin: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .nav-bar{
+            width: 100%;
+            background-color: #030221;
+            color: white;
+            padding: 1rem;
+            height: 2rem;
+        }
+        .main-container {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-items: center;
+            align-items: center;
+            position: relative;
+        }
+        .results-container{
+            padding: 30px;
+            margin-top: 10px;
+            display: none;
+        }
+        .dropzone{
+            width: 40rem;
+            height: 10rem;
+            border-radius: 10px;
+            border: 2px dashed rgb(134, 134, 237);
+            padding: 40px; /* Space inside the drop area */
+            background-color: #e6eff3; /* Light background */
+            color: blue;
+            text-align: center;
+            font-size: 16px;
+        }
+        #csv-table {
+            width: 100%;
+            height: 100%;
+            line-height: 40px;
+            table-layout: fixed;
+        }
+        #csv-table thead {
+            background-color: #e6eff3;
+        }
+        #csv-table_filter{
+            margin-bottom: 15px;
+        }
+        #csv-table_filter input{
+            width: 15rem;
+            height: 2rem;
+            border-radius: 7px;
+        }
+        .dataTables_wrapper {
+            width: 100%;
+            height: 100%;
+        }
+        /* .even{
+            height: 10px;
+        }
+        .odd{
+            height: 10px;
+        } */
+        td{
+            height: 10px !important;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-bar">
+        <span style="font-size: 1.4rem;">
+            CSV Parser
+        </span>
+    </nav>
+    <div class="main-container">
+        <div style="right: 25px; top: 35px; position: absolute; display: flex; flex-direction: column; gap: 10px;">
+            <a href="http://localhost:8000/media_csv/sample_csv_data.csv"
+             style="text-decoration: none;
+                    background-color:#030221;
+                    padding: 12px;
+                    border-radius: 10px;
+                    color: white;
+                    font-size: 0.9rem;
+             "
+            >Download Template</a>
+            <button id="clear-dropzone" style="text-decoration: none;
+            background-color:rgb(233, 57, 57);
+            border: none;
+            padding: 10px;
+            border-radius: 10px;
+            display: none;
+            font-family: 'Poppins', sans-serif;
+            cursor: pointer;
+            color: white;">Clear results</button>
+        </div>
+        <h2>Upload your csv file here</h2>
+
+        <!-- Add the Dropzone form here -->
+        <form action="/upload/" method="POST" class="dropzone" id="csv-dropzone">
+            <!-- Your CSV file will be uploaded here -->
+        </form>
+
+        <!-- Dropzone JS -->
+        <script src="https://cdn.jsdelivr.net/npm/dropzone@5.7.0/dist/dropzone.js"></script>
+
+        <script>
+            // Connect WebSocket to handle parsed data
+        const socket = new WebSocket(`ws://localhost:8000/ws/csv-layer/?layer_id=` + "{{layer_id}}");
+
+        socket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            const tableBody = document.querySelector('#csv-table tbody');
+            tableBody.innerHTML = ''; // Clear existing rows
+            let salesSum = 0, quantitySum = 0, discountSum = 0, profitSum = 0;
+                let bestSellingProduct = { name: '', quantity: 0 };
+                let mostProfitableProduct = { name: '', profit: 0 };
+                let maxDiscountProduct = { name: '', discount: 0 };
+            data.data.forEach(row => {
+                const tr = document.createElement('tr');
+                row.forEach(cell => {
+                    const td = document.createElement('td');
+                    td.textContent = cell;
+                    tr.appendChild(td);
+                });
+                tableBody.appendChild(tr);
+                const sales = parseFloat(row[1]) || 0;
+                const quantity = parseInt(row[2]) || 0;
+                const discount = parseFloat(row[3]) || 0;
+                const profit = parseFloat(row[4]) || 0;
+
+                salesSum += sales;
+                quantitySum += quantity;
+                discountSum += discount;
+                profitSum += profit;
+
+                // Find best-selling product
+                if (quantity > bestSellingProduct.quantity) {
+                    bestSellingProduct = { name: row[0], quantity: quantity };
+                }
+
+                // Find most profitable product
+                if (profit > mostProfitableProduct.profit) {
+                    mostProfitableProduct = { name: row[0], profit: profit };
+                }
+
+                // Find product with max discount
+                if (discount > maxDiscountProduct.discount) {
+                    maxDiscountProduct = { name: row[0], discount: discount };
+                }
+            });
+            const table = $('#csv-table').DataTable();
+            table.clear();  // Clear the previous data
+            table.rows.add($(tableBody).children());  // Add new rows
+            table.draw();  // Redraw the table to apply search, sort, etc.
+            // alert("CSV Parsed successfully!")
+            // Calculate averages and counts
+            const averageSales = salesSum / data.data.length;
+            const averageDiscount = discountSum / data.data.length;
+            const count = data.data.length;
+
+            // Display insights
+            document.querySelector("#total-revenue").innerHTML = `<b>Total Revenue:</b> ${salesSum.toFixed(2)}`;
+            document.querySelector("#best-selling-product").innerHTML = `<b>Best-Selling Product:</b> ${bestSellingProduct.name} (${bestSellingProduct.quantity} units)`;
+            document.querySelector("#most-profitable-product").innerHTML = `<b>Most Profitable Product:</b> ${mostProfitableProduct.name} ($${mostProfitableProduct.profit.toFixed(2)})`;
+            document.querySelector("#max-discount-product").innerHTML = `<b>Product with Maximum Discount:</b> ${maxDiscountProduct.name} (${maxDiscountProduct.discount.toFixed(2)}%)`;
+            
+            document.querySelector("#total-sales").innerHTML = `<b>Total Sales:</b> ${data.calculation_data.sales_sum}`;
+            document.querySelector("#average-sales").innerHTML = `<b>Average Sales:</b> ${data.calculation_data.sales_avg}`;
+            document.querySelector("#total-quantity").innerHTML = `<b>Total Quantity:</b> ${data.calculation_data.quantity_sum}`;
+            document.querySelector("#average-quantity").innerHTML = `<b>Average Quantity:</b> ${data.calculation_data.quantity_avg}`;
+            document.querySelector("#total-discount").innerHTML = `<b>Total Discount:</b> ${data.calculation_data.discount_sum}`;
+            document.querySelector("#average-discount").innerHTML = `<b>Average Discount:</b> ${averageDiscount.toFixed(2)}%`;
+            document.querySelector("#total-profit").innerHTML = `<b>Total Profit:</b> ${data.calculation_data.profit_sum}`;
+            document.querySelector("#average-profit").innerHTML = `<b>Average Profit:</b> ${data.calculation_data.profit_avg}`;
+
+
+            document.querySelector('.results-container').style.display = 'block';
+            document.querySelector('#clear-dropzone').style.display = 'block';
+        };
+            // Optional: Customize Dropzone settings
+            Dropzone.options.csvDropzone = {
+                paramName: "csv_file",  // The name that will be used to send the file
+                maxFilesize: 20,         // Maximum file size in MB
+                acceptedFiles: ".csv",  // Only allow CSV files
+                dictDefaultMessage: "Drag and drop a CSV file here to upload",
+                dictFallbackMessage: "Your browser does not support drag and drop file uploads.",
+                dictInvalidFileType: "Only CSV files are allowed.",
+                dictFileTooBig: "File is too big. Maximum allowed size is 20MB.",
+                autoProcessQueue: true,  
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}",  // For Django CSRF token
+                },
+                params: {
+                    layer_id: "{{layer_id}}"          // Example of another additional parameter
+                }
+            };
+            document.getElementById('clear-dropzone').addEventListener('click', function() {
+                Dropzone.forElement('#csv-dropzone').removeAllFiles();
+                document.querySelector('.results-container').style.display = 'none';
+                document.querySelector('#clear-dropzone').style.display = 'none';
+
+            });
+        </script>
+    </div>
+    <div class="results-container">
+        <!-- Insights -->
+        <h2 style="margin-top: 5px; margin-bottom: 30px; text-align: center;">CSV Insights</h2>
+        <div style="display: flex; justify-content: center; align-items: center;">
+            <div style="display: flex; justify-content: space-between; gap: 100px;width: 60%; border-radius: 10px; border: 1px solid rgb(36, 36, 39); padding: 40px;">
+                <div>
+                    <p id="total-revenue"><b>Total Revenue:</b> 0</p>
+                    <p id="best-selling-product"><b>Best-Selling Product:</b> N/A</p>
+                    <p id="most-profitable-product"><b>Most Profitable Product:</b> N/A</p>
+                    <p id="max-discount-product"><b>Product with Maximum Discount:</b> N/A</p>
+                    <p id="total-sales"><b>Total Sales:</b> 0</p>
+                    <p id="average-sales"><b>Average Sales:</b> 0%</p>
+                </div>
+                <div>
+                    <p id="total-quantity"><b>Total Quantity:</b> N/A</p>
+                    <p id="average-quantity"><b>Average Quantity:</b> 0</p>
+                    <p id="total-discount"><b>Total Discount:</b> 0%</p>
+                    <p id="average-discount"><b>Average Discount:</b> 0%</p>
+                    <p id="total-profit"><b>Total Profit:</b> 0</p>
+                    <p id="average-profit"><b>Average Profit:</b> 0</p>
+                </div>
+            </div>
+        </div>
+        <!-- CSV Results -->
+        <h2 style="margin-top: 30px; margin-bottom: 30px; text-align: center;">CSV Parsed Data</h2>
+        <table id="csv-table" class="display">
+            <thead>
+                <tr>
+                    <th>Product Name</th>
+                    <th>Sales</th>
+                    <th>Quantity</th>
+                    <th>Discount</th>
+                    <th>Profit</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- CSV Data rows will be inserted here -->
+            </tbody>
+        </table>
+    
+        <script>
+            $(document).ready(function() {
+                $('#csv-table').DataTable({
+                    // Optional settings
+                    paging: false,
+                    searching: true,
+                    // ordering: true,
+                    // scrollY: '50vh',       // Full height
+                    // scrollX: true,          // Enable horizontal scrolling
+                    // scroller: true,
+                });
+    
+                // Example: Insert CSV data programmatically
+                const csvData = [
+                ];
+    
+                csvData.forEach(function(row) {
+                    $('#csv-table').DataTable().row.add(row).draw();
+                });
+            });
+        </script>
+    </div>
+</body>
+</html>
