@@ -12,6 +12,8 @@
     <link href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <!-- Font Awesome Icons -->
+    <script src="https://kit.fontawesome.com/efc1464097.js" crossorigin="anonymous"></script>
     <style>
         body {
             font-family: 'Poppins', sans-serif;
@@ -50,6 +52,9 @@
             color: blue;
             text-align: center;
             font-size: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         #csv-table {
             width: 100%;
@@ -199,7 +204,10 @@
                 paramName: "csv_file",  // The name that will be used to send the file
                 maxFilesize: 20,         // Maximum file size in MB
                 acceptedFiles: ".csv",  // Only allow CSV files
-                dictDefaultMessage: "Drag and drop a CSV file here to upload",
+                dictDefaultMessage: `<div style="display: flex; flex-direction: column; gap: 10px; justify-content:start; align-items:center;">
+                                        <i class="fa-solid fa-arrow-up-from-bracket" style="font-size: 2rem;"></i>
+                                        <span>Drag and drop a CSV file here to upload</span>
+                                    </div>`,
                 dictFallbackMessage: "Your browser does not support drag and drop file uploads.",
                 dictInvalidFileType: "Only CSV files are allowed.",
                 dictFileTooBig: "File is too big. Maximum allowed size is 20MB.",
